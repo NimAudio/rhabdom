@@ -92,7 +92,7 @@ var function_kind_map: Table[string, ShaderFunctionKind] = {
     "FRAG": sfkFragment
 }.toTable()
 
-proc parse(shader: string): (seq[Statement], seq[Statement]) =
+proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var sc_brace   = 0
     var sc_paren   = 0
     var sc_bracket = 0
