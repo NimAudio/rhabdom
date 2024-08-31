@@ -1,4 +1,4 @@
-import std/[strutils, tables, algorithm, sequtils] #, strbasics]
+import std/[strutils, tables, algorithm, sequtils, strbasics]
 
 var test_shader = """
 texture GL_TEXTURE_2D ext1;
@@ -10,6 +10,19 @@ mesh vertex_color;
 attrib vec4 position;
 attrib vec4 color0;
 between vec4 color;
+var int foo 10;
+var float foo2 = 5;
+const int bar 15;
+const float bar2 = -20;
+struct TypeWithDecl {
+int foo;
+vec3 bar;
+} typeWithDecl;
+struct Type {
+    float x;
+    float y;
+    float z;
+};
 
 function float a(in float x) {
     return 1.f - x;
@@ -35,15 +48,17 @@ function void fragment() {
 
 type
     ShaderKeyword* = enum
+        pkInclude,
         pkMeshInput,
         pkTexInput,
         pkTexOutput
         pkTexExternal,
+        pkVar,
         pkUniform,
         pkMeshAttrib,
         pkBetween,
         pkFunction,
-        pkInclude
+        pkStruct,
 
     ShaderFunctionKind* = enum
         sfkVertex,
@@ -55,10 +70,13 @@ type
         var_type      *: string
         case kind                   *: ShaderKeyword:
             of pkFunction: function *: ShaderFunction
+            of pkVar:
+                value    *: string
+                is_const *: bool
             else: discard
         # layout_values *: seq[string] = @[]
 
-    ShaderFunction* = ref object
+    ShaderFunction* = ref object # was separate to handle calls as graph, should be refactored into Statement
         name  *: string
         kind  *: ShaderFunctionKind
         calls *: seq[string]
@@ -83,7 +101,10 @@ var keyword_map: Table[string, ShaderKeyword] = {
     "PROC": pkFunction,
     "PROCEDURE": pkFunction,
     "INCLUDE": pkInclude,
-    "INCL": pkInclude
+    "INCL": pkInclude,
+    "VAR": pkVar,
+    "CONST": pkVar, # handled as part of state of var ast obj
+    "STRUCT": pkStruct, # make separate line with variable decl if you want const
 }.toTable()
 var function_kind_map: Table[string, ShaderFunctionKind] = {
     "VERTEX": sfkVertex,
@@ -113,6 +134,17 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var function_calls: seq[string]
     var in_func_body = false
     var defined_functions: seq[string]
+    var is_var_const = false
+    var var_type = ""
+    var var_name = ""
+    var var_value = ""
+    var var_has_type = false
+    var var_has_name = false
+    var var_value_past_equals = false
+    var struct_at_var_name = false
+    var struct_at_body = false
+    var struct_var_decl = ""
+    var struct_type_name = ""
 
     block: # so i can be reused elsewhere
         var i = 0
@@ -165,6 +197,8 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                     if keyword_buffer.toUpperAscii() in keyword_map:
                         has_keyword = true
                         keyword = keyword_map[keyword_buffer.toUpperAscii()]
+                        if keyword_buffer.toUpperAscii() == "CONST":
+                            is_var_const = true
                         keyword_data = ""
                         # stdout.write("<<<")
                     keyword_buffer = ""
@@ -195,7 +229,88 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 #     of pkFunction:
                 #         discard
                 # stdout.write(shader[i])
-                if keyword != pkFunction:
+                if keyword == pkVar:
+                    if shader[i] == ';':
+                        var_name.strip()
+                        var_type.strip()
+                        var_value.strip()
+                        result[0] &= Statement(
+                            name     : var_name,
+                            var_type : var_type,
+                            kind     : pkVar,
+                            value    : var_value,
+                            is_const : is_var_const,
+                        )
+                        # echo("type:  ", var_type)
+                        # echo("name:  ", var_name)
+                        # echo("value: ", var_value)
+                        # echo("const: ", is_var_const)
+                        is_var_const = false
+                        has_keyword = false
+                        var_has_type = false
+                        var_has_name = false
+                        var_value_past_equals = false
+                        keyword_data = ""
+                        var_type = ""
+                        var_name = ""
+                        var_value = ""
+                    else:
+                        if var_has_name and not (shader[i] == '=' or shader[i] == ' '):
+                            var_value_past_equals = true
+                        if var_has_name: # append first to have trailing spaces rather than leading
+                            if var_value_past_equals:
+                                var_value &= shader[i]
+                        elif var_has_type:
+                            var_name &= shader[i]
+                        else:
+                            var_type &= shader[i]
+                        if var_has_type and (shader[i] == ' ' or shader[i] == '=' or shader[i] == ';'):
+                            var_has_name = true
+                        if shader[i] == ' ': # flipped order to change above state next iteration
+                            var_has_type = true
+                        # keyword_data &= shader[i]
+                elif keyword == pkStruct:
+                    if (not struct_at_body) and sc_brace == 1 and shader[i] == '{': # sc_brace will have been incremented by now
+                        struct_at_body = true
+                    if not struct_at_body:
+                        struct_type_name &= shader[i]
+                    elif not struct_at_var_name:
+                        keyword_data &= shader[i]
+                    else:
+                        struct_var_decl &= shader[i]
+                    if sc_brace == 0:
+                        if shader[i] == '}':
+                            struct_at_var_name = true
+                        elif shader[i] == ';':
+                            struct_type_name.strip()
+                            keyword_data.strip()
+                            keyword_data.strip(chars = {';'})
+                            keyword_data = keyword_data.replace("\n", " ")
+                            struct_var_decl.strip()
+                            struct_var_decl.strip(chars = {';'})
+                            result[0] &= Statement(
+                                name     : struct_type_name,
+                                var_type : keyword_data,
+                                kind     : pkStruct
+                            )
+                            if len(struct_var_decl) > 0:
+                                result[0] &= Statement(
+                                    name     : struct_var_decl,
+                                    var_type : struct_type_name,
+                                    kind     : pkVar,
+                                    value    : "",
+                                    is_const : false,
+                                )
+                            echo(struct_type_name)
+                            echo(keyword_data)
+                            echo(struct_var_decl)
+                            has_keyword = false
+                            struct_at_var_name = false
+                            struct_at_body = false
+                            keyword_data = ""
+                            struct_var_decl = ""
+                            struct_type_name = ""
+                elif keyword != pkFunction:
                     keyword_data &= shader[i]
                     if shader[i] == ';':
                         # stdout.write(">>>")
@@ -262,13 +377,18 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 echo("invalid function to call " & call)
                 quit(1)
 
-var (config_statements, function_statements) = parse(test_shader)
+var (config_statements, function_statements) = parse_to_ast(test_shader)
 
 echo()
 for s in config_statements:
     stdout.write(s.name)
     stdout.write(", ")
     stdout.write(s.var_type)
+    if s.kind == pkVar:
+        stdout.write(", ")
+        stdout.write(s.value)
+        stdout.write(", ")
+        stdout.write(if s.is_const: "const" else: "var")
     stdout.write(", ")
     stdout.write(s.kind)
     stdout.write("\n")
