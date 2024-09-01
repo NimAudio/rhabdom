@@ -286,11 +286,21 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                             keyword_data.strip()
                             keyword_data.strip(chars = {';'})
                             keyword_data = keyword_data.replace("\n", " ")
+                            var struct_data = ""
+                            var last_was_space = false
+                            for c in keyword_data:
+                                if c == ' ':
+                                    if not last_was_space:
+                                        struct_data &= c
+                                    last_was_space = true
+                                else:
+                                    last_was_space = false
+                                    struct_data &= c
                             struct_var_decl.strip()
                             struct_var_decl.strip(chars = {';'})
                             result[0] &= Statement(
                                 name     : struct_type_name,
-                                var_type : keyword_data,
+                                var_type : struct_data,
                                 kind     : pkStruct
                             )
                             if len(struct_var_decl) > 0:
@@ -301,9 +311,9 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                                     value    : "",
                                     is_const : false,
                                 )
-                            echo(struct_type_name)
-                            echo(keyword_data)
-                            echo(struct_var_decl)
+                            # echo(struct_type_name)
+                            # echo(keyword_data)
+                            # echo(struct_var_decl)
                             has_keyword = false
                             struct_at_var_name = false
                             struct_at_body = false
