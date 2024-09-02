@@ -354,10 +354,26 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                         # keyword_data.strip(trailing = false, chars = {';'})
                         # stdout.write(keyword_data)
                         var func_name = keyword_data.split("(", 1)[0].split(" ")[^1]
+                        var main_rename = keyword_data
+                        if func_name.toUpperAscii() in function_kind_map:
+                            if function_kind_map[func_name.toUpperAscii()] != sfkOther:
+                                main_rename = ""
+                                var at_func_name = false
+                                var after_func_name = false
+                                for c in keyword_data:
+                                    if not at_func_name and c == ' ':
+                                        main_rename &= " main"
+                                        at_func_name = true
+                                    elif c == '(':
+                                        after_func_name = true
+                                    if not at_func_name:
+                                        main_rename &= c
+                                    elif after_func_name:
+                                        main_rename &= c
                         defined_functions &= func_name
                         result[1] &= Statement(
                             name     : func_name,
-                            var_type : keyword_data,
+                            var_type : main_rename,
                             kind     : pkFunction,
                             function : ShaderFunction(
                                 name: func_name,
@@ -387,30 +403,30 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 echo("invalid function to call " & call)
                 quit(1)
 
-var (config_statements, function_statements) = parse_to_ast(test_shader)
+# var (config_statements, function_statements) = parse_to_ast(test_shader)
 
-echo()
-for s in config_statements:
-    stdout.write(s.name)
-    stdout.write(", ")
-    stdout.write(s.var_type)
-    if s.kind == pkVar:
-        stdout.write(", ")
-        stdout.write(s.value)
-        stdout.write(", ")
-        stdout.write(if s.is_const: "const" else: "var")
-    stdout.write(", ")
-    stdout.write(s.kind)
-    stdout.write("\n")
-echo()
-for s in function_statements:
-    stdout.write(s.name)
-    stdout.write(", ")
-    stdout.write(s.var_type)
-    stdout.write(", ")
-    stdout.write(s.kind)
-    stdout.write(", ")
-    stdout.write(s.function.kind)
-    stdout.write(", ")
-    stdout.write($s.function.calls)
-    stdout.write("\n\n")
+# echo()
+# for s in config_statements:
+#     stdout.write(s.name)
+#     stdout.write(", ")
+#     stdout.write(s.var_type)
+#     if s.kind == pkVar:
+#         stdout.write(", ")
+#         stdout.write(s.value)
+#         stdout.write(", ")
+#         stdout.write(if s.is_const: "const" else: "var")
+#     stdout.write(", ")
+#     stdout.write(s.kind)
+#     stdout.write("\n")
+# echo()
+# for s in function_statements:
+#     stdout.write(s.name)
+#     stdout.write(", ")
+#     stdout.write(s.var_type)
+#     stdout.write(", ")
+#     stdout.write(s.kind)
+#     stdout.write(", ")
+#     stdout.write(s.function.kind)
+#     stdout.write(", ")
+#     stdout.write($s.function.calls)
+#     stdout.write("\n\n")
