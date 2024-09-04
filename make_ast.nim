@@ -81,6 +81,32 @@ type
         kind  *: ShaderFunctionKind
         calls *: seq[string]
 
+proc `$`*(s: Statement): string =
+    case s.kind:
+        of pkInclude:
+            result &= "INCL "
+        of pkMeshInput:
+            result &= "MESH "
+        of pkTexInput:
+            result &= "IN "
+        of pkTexOutput:
+            result &= "OUT "
+        of pkTexExternal:
+            result &= "TEX "
+        of pkVar:
+            result &= "VAR "
+        of pkUniform:
+            result &= "UNI "
+        of pkMeshAttrib:
+            result &= "ATTR "
+        of pkBetween:
+            result &= "BTW "
+        of pkFunction:
+            result &= "FUNC "
+        of pkStruct:
+            result &= "STRC "
+    result &= s.name
+
 var keyword_map: Table[string, ShaderKeyword] = {
     "MESH": pkMeshInput,
     "INPUT": pkTexInput,
@@ -402,6 +428,29 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
             if call.toUpperAscii() in ["VERTEX", "VERT", "FRAGMENT", "FRAG"]:
                 echo("invalid function to call " & call)
                 quit(1)
+
+
+proc parse_all*(strings: openArray[string]): seq[(seq[Statement], seq[Statement])] =
+    for f in strings:
+        result &= parse_to_ast(f)
+
+
+proc parse_all_config*(strings: openArray[string]): seq[seq[Statement]] =
+    for f in strings:
+        result &= parse_to_ast(f)[0]
+
+proc all_configs*(both: seq[(seq[Statement], seq[Statement])]): seq[seq[Statement]] =
+    for s in both:
+        result &= s[0]
+
+
+proc parse_all_function*(strings: openArray[string]): seq[seq[Statement]] =
+    for f in strings:
+        result &= parse_to_ast(f)[1]
+
+proc all_functions*(both: seq[(seq[Statement], seq[Statement])]): seq[seq[Statement]] =
+    for s in both:
+        result &= s[1]
 
 # var (config_statements, function_statements) = parse_to_ast(test_shader)
 

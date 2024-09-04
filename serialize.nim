@@ -1,4 +1,5 @@
 import std/[strutils, tables, algorithm]
+import make_ast
 
 var files = [
 """
@@ -6,13 +7,13 @@ texture ext1;
 output a;
 """,
 """
-texture a;
+input a;
 output b;
 """,
 """
 texture ext1;
-texture a;
-texture c;
+input a;
+input c;
 output d;
 uniform float foo;
 mesh vertex_color;
@@ -49,18 +50,18 @@ void main() {
 # """,
 """
 texture ext2;
-texture b;
-texture d;
+input b;
+input d;
 output e;
 """,
 """
-texture b;
+input b;
 output c;
 output m;
 """,
 """
-texture m;
-texture e;
+input m;
+input e;
 output f;
 """,
 # """
@@ -81,7 +82,9 @@ type Tokenized* = object
     inputs_id    *: seq[int]
     output_id    *: int
     position     *: int
-    shader_text  *: string
+
+proc `$`*(t: Tokenized): string =
+    result &= "AT: " & $t.position & " ID: " & $t.output_id & " IN: " & $t.inputs_named & " " & $t.inputs_id & " OUT: " & $t.output_named
 
 proc loop_check(tokenized: seq[Tokenized], s_id, checkfor: int): bool =
     # echo(s_id, " ", checkfor, " ", tokenized[s_id].inputs_id)
@@ -124,42 +127,68 @@ proc echo_position(tokenized: seq[Tokenized]) =
     #     stdout.write(" ")
     # stdout.write("\n")
 
-proc serialize_shader_list*(shaders: seq[string]): seq[Tokenized] =
+proc serialize_shader_list*(shaders: seq[seq[Statement]]): seq[Tokenized] =
     # var result: seq[Tokenized]
     var output_name_to_id: Table[string, int]
+
+    block:
+        discard
+        # block: # make i and j not stick around
+        #     var i = 0
+        #     var j = 0
+        #     for file in shaders:
+        #         var shader: Tokenized
+        #         var has_output = false
+        #         var split_by_newline = file.split("\n")
+        #         var decommented: string
+        #         for s in split_by_newline:
+        #             if not s.startswith("//"):
+        #                 decommented &= s & "\n"
+        #         for line in decommented.split("\n"):
+        #             var split_line = line.split(" ")
+        #             if (split_line[0] == "texture") or (split_line[0] == "input"):
+        #                 shader.inputs_named &= split_line[1].replace(";", "")
+        #             elif split_line[0] == "output":
+        #                 # echo(split_line, has_output)
+        #                 shader.output_named &= split_line[1].replace(";", "")
+        #                 output_name_to_id[split_line[1].replace(";", "")] = i
+        #                 shader.output_id = i
+        #                 has_output = true
+        #                 # echo(shader.output_id, shader.output_named)
+        #             # else:
+        #             if len(line) > 0:
+        #                 shader.shader_text &= line & "\n"
+        #         if has_output:
+        #             i += 1
+        #         if has_output:
+        #             shader.position = j
+        #             j += 1
+        #             # echo($shader.inputs_named & "  ->  " & $shader.output_named & " at: " & $shader.position & " id: " & $shader.output_id)
+        #             result &= shader
 
     block: # make i and j not stick around
         var i = 0
         var j = 0
-        for file in shaders:
+        for statements in shaders:
             var shader: Tokenized
             var has_output = false
-            var split_by_newline = file.split("\n")
-            var decommented: string
-            for s in split_by_newline:
-                if not s.startswith("//"):
-                    decommented &= s & "\n"
-            for line in decommented.split("\n"):
-                var split_line = line.split(" ")
-                if (split_line[0] == "texture") or (split_line[0] == "input"):
-                    shader.inputs_named &= split_line[1].replace(";", "")
-                elif split_line[0] == "output":
+            for s in statements:
+                if s.kind == pkTexInput:
+                    shader.inputs_named &= s.name
+                elif s.kind == pkTexOutput:
                     # echo(split_line, has_output)
-                    shader.output_named &= split_line[1].replace(";", "")
-                    output_name_to_id[split_line[1].replace(";", "")] = i
+                    shader.output_named &= s.name
+                    output_name_to_id[s.name] = i
                     shader.output_id = i
                     has_output = true
-                    # echo(shader.output_id, shader.output_named)
-                # else:
-                if len(line) > 0:
-                    shader.shader_text &= line & "\n"
             if has_output:
                 i += 1
             if has_output:
                 shader.position = j
                 j += 1
-                # echo($shader.inputs_named & "  ->  " & $shader.output_named & " at: " & $shader.position & " id: " & $shader.output_id)
                 result &= shader
+    # for tok in result:
+    #     echo(tok)
 
     var has_source: seq[string]
     var no_source: seq[string]
@@ -281,11 +310,11 @@ proc sort_shaders*(tokenized: var seq[Tokenized]) =
 
     tokenized.sort(sort_by_position)
 
-var serialized = serialize_shader_list(@files)
+var serialized = serialize_shader_list(parse_all_config(files))
 serialized.echo_position()
-serialized.sort_shaders()
+# serialized.sort_shaders()
 
-for shader in serialized:
-    echo(shader.shader_text)
-    echo(shader.position)
-    echo("end")
+# for shader in serialized:
+#     # echo(shader.shader_text)
+#     echo(shader.position)
+#     echo("end")
