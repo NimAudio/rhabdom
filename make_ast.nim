@@ -4,7 +4,7 @@ var test_shader = """
 texture GL_TEXTURE_2D ext1;
 input a;
 input c;
-output d;
+output vec4 d;
 uniform float foo;
 mesh vertex_color;
 attrib vec4 position;

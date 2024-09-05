@@ -5,7 +5,7 @@ var test_shader = """
 texture GL_TEXTURE_2D ext1;
 input a;
 input c;
-output d;
+output vec4 d;
 uniform float foo;
 mesh vertex_color;
 attrib vec4 position;
@@ -47,8 +47,6 @@ function void fragment() {
 }
 """
 
-var (config_statements, function_statements) = parse_to_ast(test_shader)
-
 proc make_vert*(config_statements: seq[Statement], function_statements: seq[Statement]): string
 proc make_vert*(statements: (seq[Statement], seq[Statement])): string =
     return make_vert(statements[0], statements[1])
@@ -79,36 +77,41 @@ proc make_vert*(config_statements: seq[Statement], function_statements: seq[Stat
             else:
                 discard
 
-    result &= "#version 330\n\n"
+    result &= "#version 330 core\n\n"
 
     # for st in texture_ext:
     #     echo(st.name)
 
     for st in struct_defs:
         result &= "struct " & st.name & " " & st.var_type & ";\n"
-    result &= "\n"
+    if len(struct_defs) > 0:
+        result &= "\n"
 
     for st in global_vars:
         result &= (if st.is_const: "const " else: "")
         result &= st.var_type & " " & st.name
         result &= (if len(st.value) > 0: " = " & st.value & ";\n" else: ";\n")
-    result &= "\n"
+    if len(global_vars) > 0:
+        result &= "\n"
 
     for st in texture_ext:
         result &= "uniform " & st.var_type & " " & st.name & ";\n"
         result &= "uniform sampler " & st.name & "_smp;\n"
-    result &= "\n"
+    if len(texture_ext) > 0:
+        result &= "\n"
 
     var i_attribute = 0
     for st in mesh_attributes:
         result &= "layout(location = " & $i_attribute & ") "
         result &= "in " & st.var_type & " " & st.name & ";\n"
         i_attribute += 1
-    result &= "\n"
+    if len(mesh_attributes) > 0:
+        result &= "\n"
 
     for st in between_vars:
         result &= "out " & st.var_type & " " & st.name & ";\n"
-    result &= "\n"
+    if len(between_vars) > 0:
+        result &= "\n"
 
     for st in function_statements:
         if st.function.kind == sfkOther:
@@ -144,47 +147,54 @@ proc make_frag*(config_statements: seq[Statement], function_statements: seq[Stat
             else:
                 discard
 
-    result &= "#version 330\n\n"
+    result &= "#version 330 core\n\n"
 
     for st in struct_defs:
         result &= "struct " & st.name & " " & st.var_type & ";\n"
-    result &= "\n"
+    if len(struct_defs) > 0:
+        result &= "\n"
 
     for st in global_vars:
         result &= (if st.is_const: "const " else: "")
         result &= st.var_type & " " & st.name
         result &= (if len(st.value) > 0: " = " & st.value & ";\n" else: ";\n")
-    result &= "\n"
+    if len(global_vars) > 0:
+        result &= "\n"
 
     for st in framebuffers_in:
         result &= "uniform GL_TEXTURE_2D " & st.name & ";\n"
         result &= "uniform sampler " & st.name & "_smp;\n"
-    result &= "\n"
+    if len(framebuffers_in) > 0:
+        result &= "\n"
 
     for st in texture_ext:
         result &= "uniform " & st.var_type & " " & st.name & ";\n"
         result &= "uniform sampler " & st.name & "_smp;\n"
-    result &= "\n"
+    if len(texture_ext) > 0:
+        result &= "\n"
+
+    for st in between_vars:
+        result &= "in " & st.var_type & " " & st.name & ";\n"
+    if len(between_vars) > 0:
+        result &= "\n"
 
     var i_attribute = 0
     for st in framebuffers_out:
         result &= "layout(location = " & $i_attribute & ") "
-        result &= "out vec4 " & st.name & ";\n"
+        result &= "out " & st.var_type & " " & st.name & ";\n"
         i_attribute += 1
-    result &= "\n"
-
-    for st in between_vars:
-        result &= "in " & st.var_type & " " & st.name & ";\n"
-    result &= "\n"
+    if len(framebuffers_out) > 0:
+        result &= "\n"
 
     for st in function_statements:
         if st.function.kind == sfkOther:
             result &= st.var_type & "\n\n"
 
     for st in function_statements:
-        if st.function.kind == sfkVertex:
+        if st.function.kind == sfkFragment:
             result &= st.var_type & "\n"
 
-echo(make_vert(config_statements, function_statements))
-echo("------")
-echo(make_frag(config_statements, function_statements))
+# var (config_statements, function_statements) = parse_to_ast(test_shader)
+# echo(make_vert(config_statements, function_statements))
+# echo("------")
+# echo(make_frag(config_statements, function_statements))
