@@ -25,6 +25,15 @@ type
         muDynamicRead = GL_DYNAMIC_READ,
         muDynamicCopy = GL_DYNAMIC_COPY,
 
+    MeshType* {. size:sizeof(GLenum) .} = enum
+        mtPoints    = GL_POINTS,
+        mtLines     = GL_LINES,
+        mtLineLoop  = GL_LINE_LOOP,
+        mtLineStrip = GL_LINE_STRIP,
+        mtTriangles = GL_TRIANGLES,
+        mtTriStrip  = GL_TRIANGLE_STRIP,
+        mtTriFan    = GL_TRIANGLE_FAN,
+
     MeshAttr* = object
         name      *: string
         number    *: range[1..4] = 3  # vec size
@@ -41,6 +50,7 @@ type
         vertices     *: ptr UncheckedArray[byte] # use attributes to calculate the size of one vertex, then multiplied by the number of vertices
         indices      *: ptr UncheckedArray[uint32] # indices probably always need to be uint32, im not sure if there's a 64 bit int type
         usage        *: MeshUsage
+        mesh_type    *: MeshType
 
 proc byte_size*(mat: MeshAttrType): int32 =
     case mat:
@@ -99,9 +109,11 @@ proc mesh_setup*(md: var MeshData, locations: Table[string, uint32]) =
     glBindVertexArray(0)
 
 proc mesh_frame*(md: MeshData) =
+    # add blend funcs
+    # add general glenable/disable system
     glBindVertexArray(md.vao_id)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, md.ibo_id)
-    glDrawElements(GL_TRIANGLES, GLsizei(md.num_indices), GL_TYPE_UNSIGNED_INT, nil);
+    glDrawElements(GLenum(md.mesh_type), GLsizei(md.num_indices), GL_TYPE_UNSIGNED_INT, nil);
 
 
 proc tex_setup*() =
