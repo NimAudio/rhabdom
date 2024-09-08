@@ -4,7 +4,9 @@ var test_shader = """
 texture GL_TEXTURE_2D ext1;
 input a;
 input c;
+// when not present, should output ast for: output vec4 frag_color;
 output vec4 d;
+output vec4 e;
 uniform float foo;
 mesh vertex_color;
 attrib vec4 position;
@@ -23,6 +25,22 @@ struct Type {
     float y;
     float z;
 };
+
+enable foo bar bat;
+enable
+one
+two three,
+four,five;
+disable abc,def,       ghi     jkl;
+
+clear 0.0, 1.0, 0.0, 1.0;
+clear d, 1.0 0.0 0.0 1.0;
+clear 0.0 0.0 0.0 0.0 1.0 2.0 e;
+clear 1.0 0.0 1.0 0.0, f;
+
+scale 0.25;
+scale 2x;
+scale 400px, 800px;
 
 function float a(in float x) {
     return 1.f - x;
@@ -59,6 +77,9 @@ type
         pkBetween,
         pkFunction,
         pkStruct,
+        pkClearColor,  #TODO implement
+        pkEnable,      #TODO implement
+        pkResScale     #TODO implement
 
     ShaderFunctionKind* = enum
         sfkVertex,
@@ -68,11 +89,17 @@ type
     Statement* = ref object
         name          *: string
         var_type      *: string
-        case kind                   *: ShaderKeyword:
-            of pkFunction: function *: ShaderFunction
+        case kind*: ShaderKeyword:
+            of pkFunction:
+                function *: ShaderFunction
             of pkVar:
                 value    *: string
                 is_const *: bool
+            of pkClearColor:
+                color *: array[4, float32]
+            of pkEnable:
+                enable *: bool # true enables, false disables
+                settings *: seq[string]
             else: discard
         # layout_values *: seq[string] = @[]
 
@@ -105,6 +132,15 @@ proc `$`*(s: Statement): string =
             result &= "FUNC "
         of pkStruct:
             result &= "STRC "
+        of pkClearColor:
+            result &= "CLCOLOR "
+        of pkEnable:
+            if s.enable:
+                result &= "ENABLE "
+            else:
+                result &= "DISABLE "
+        of pkResScale:
+            result &= "SCALE "
     result &= s.name
 
 var keyword_map: Table[string, ShaderKeyword] = {
@@ -131,6 +167,13 @@ var keyword_map: Table[string, ShaderKeyword] = {
     "VAR": pkVar,
     "CONST": pkVar, # handled as part of state of var ast obj
     "STRUCT": pkStruct, # make separate line with variable decl if you want const
+    "CLEAR": pkClearColor,
+    "COLOR": pkClearColor,
+    "ENABLE": pkEnable,
+    "DISABLE": pkEnable,
+    "SCALE": pkResScale,
+    "RESOLUTION": pkResScale,
+    "RES": pkResScale,
 }.toTable()
 var function_kind_map: Table[string, ShaderFunctionKind] = {
     "VERTEX": sfkVertex,
@@ -160,6 +203,7 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var function_calls: seq[string]
     var in_func_body = false
     var defined_functions: seq[string]
+
     var is_var_const = false
     var var_type = ""
     var var_name = ""
@@ -167,10 +211,19 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var var_has_type = false
     var var_has_name = false
     var var_value_past_equals = false
+
     var struct_at_var_name = false
     var struct_at_body = false
     var struct_var_decl = ""
     var struct_type_name = ""
+
+    var is_enable_disable = false
+    var enable_seq: seq[string]
+    var enable_buffer = ""
+    var last_was_separator = false
+    var color_array: array[4, float32]
+    var color_index = 0
+    var clear_color_name = ""
 
     block: # so i can be reused elsewhere
         var i = 0
@@ -223,8 +276,11 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                     if keyword_buffer.toUpperAscii() in keyword_map:
                         has_keyword = true
                         keyword = keyword_map[keyword_buffer.toUpperAscii()]
+                        # echo(keyword)
                         if keyword_buffer.toUpperAscii() == "CONST":
                             is_var_const = true
+                        if keyword_buffer.toUpperAscii() == "DISABLE":
+                            is_enable_disable = true
                         keyword_data = ""
                         # stdout.write("<<<")
                     keyword_buffer = ""
@@ -295,6 +351,65 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                         if shader[i] == ' ': # flipped order to change above state next iteration
                             var_has_type = true
                         # keyword_data &= shader[i]
+                elif keyword == pkEnable:
+                    if shader[i] == ';':
+                        enable_seq &= enable_buffer
+                        enable_buffer = ""
+                        # echo(enable_seq)
+                        result[0] &= Statement(
+                            name     : if is_enable_disable: "Disable" else: "Enable",
+                            var_type : "",
+                            kind     : pkEnable,
+                            enable   : not is_enable_disable,
+                            settings : enable_seq
+                        )
+                        enable_seq = @[]
+                        has_keyword = false
+                        last_was_separator = false
+                        keyword_data = ""
+                    elif shader[i] != ',' and shader[i] != ' ' and shader[i] != '\n':
+                        last_was_separator = false
+                        enable_buffer &= shader[i]
+                    elif not last_was_separator:
+                        last_was_separator = true
+                        enable_seq &= enable_buffer
+                        enable_buffer = ""
+                elif keyword == pkClearColor:
+                    if shader[i] == ';':
+                        try:
+                            var value = float32(parseFloat(enable_buffer))
+                            if color_index < 4:
+                                color_array[color_index] = value
+                            color_index += 1
+                        except ValueError:
+                            clear_color_name = enable_buffer
+                        enable_buffer = ""
+                        # echo(enable_seq)
+                        result[0] &= Statement(
+                            name     : clear_color_name,
+                            var_type : "",
+                            kind     : pkClearColor,
+                            color    : color_array
+                        )
+                        enable_seq = @[]
+                        has_keyword = false
+                        last_was_separator = false
+                        keyword_data = ""
+                        clear_color_name = ""
+                        color_index = 0
+                    elif shader[i] != ',' and shader[i] != ' ' and shader[i] != '\n':
+                        last_was_separator = false
+                        enable_buffer &= shader[i]
+                    elif not last_was_separator:
+                        last_was_separator = true
+                        try:
+                            var value = float32(parseFloat(enable_buffer))
+                            if color_index < 4:
+                                color_array[color_index] = value
+                            color_index += 1
+                        except ValueError:
+                            clear_color_name = enable_buffer
+                        enable_buffer = ""
                 elif keyword == pkStruct:
                     if (not struct_at_body) and sc_brace == 1 and shader[i] == '{': # sc_brace will have been incremented by now
                         struct_at_body = true
@@ -429,6 +544,17 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 echo("invalid function to call " & call)
                 quit(1)
 
+    var has_output = false
+    for s in result[0]:
+        if s.kind == pkTexOutput:
+            has_output = true
+    if not has_output:
+        result[0] &= Statement(
+                            name     : "frag_color",
+                            var_type : "vec4",
+                            kind     : pkTexOutput
+                        )
+
 
 proc parse_all*(strings: openArray[string]): seq[(seq[Statement], seq[Statement])] =
     for f in strings:
@@ -452,30 +578,38 @@ proc all_functions*(both: seq[(seq[Statement], seq[Statement])]): seq[seq[Statem
     for s in both:
         result &= s[1]
 
-# var (config_statements, function_statements) = parse_to_ast(test_shader)
+var (config_statements, function_statements) = parse_to_ast(test_shader)
 
-# echo()
-# for s in config_statements:
-#     stdout.write(s.name)
-#     stdout.write(", ")
-#     stdout.write(s.var_type)
-#     if s.kind == pkVar:
-#         stdout.write(", ")
-#         stdout.write(s.value)
-#         stdout.write(", ")
-#         stdout.write(if s.is_const: "const" else: "var")
-#     stdout.write(", ")
-#     stdout.write(s.kind)
-#     stdout.write("\n")
-# echo()
-# for s in function_statements:
-#     stdout.write(s.name)
-#     stdout.write(", ")
-#     stdout.write(s.var_type)
-#     stdout.write(", ")
-#     stdout.write(s.kind)
-#     stdout.write(", ")
-#     stdout.write(s.function.kind)
-#     stdout.write(", ")
-#     stdout.write($s.function.calls)
-#     stdout.write("\n\n")
+echo()
+for s in config_statements:
+    stdout.write(s.kind)
+    stdout.write(", n:")
+    stdout.write(s.name)
+    stdout.write(", t:")
+    stdout.write(s.var_type)
+    if s.kind == pkVar:
+        stdout.write(", ")
+        stdout.write(s.value)
+        stdout.write(", ")
+        stdout.write(if s.is_const: "const" else: "var")
+    elif s.kind == pkEnable:
+        stdout.write(", ")
+        stdout.write(s.enable)
+        stdout.write(", ")
+        stdout.write(s.settings)
+    elif s.kind == pkClearColor:
+        stdout.write(", ")
+        stdout.write(s.color)
+    stdout.write("\n")
+echo()
+for s in function_statements:
+    stdout.write(s.kind)
+    stdout.write(", ")
+    stdout.write(s.function.kind)
+    stdout.write(", ")
+    stdout.write(s.name)
+    stdout.write(", ")
+    stdout.write(s.var_type)
+    stdout.write(", ")
+    stdout.write($s.function.calls)
+    stdout.write("\n\n")
