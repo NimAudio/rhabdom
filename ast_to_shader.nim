@@ -47,11 +47,11 @@ function void fragment() {
 }
 """
 
-proc make_vert*(config_statements: seq[Statement], function_statements: seq[Statement]): string
-proc make_vert*(statements: (seq[Statement], seq[Statement])): string =
-    return make_vert(statements[0], statements[1])
+proc make_vertex_shader*(config_statements: seq[Statement], function_statements: seq[Statement]): string
+proc make_vertex_shader*(statements: (seq[Statement], seq[Statement])): string =
+    return make_vertex_shader(statements[0], statements[1])
 
-proc make_vert*(config_statements: seq[Statement], function_statements: seq[Statement]): string =
+proc make_vertex_shader*(config_statements: seq[Statement], function_statements: seq[Statement]): string =
     # proc sort_by_name_hash(s1, s2: Statement): int =
     #     cmp(hash(s1.name), hash(s2.name))
     # framebuffers_in.sort(sort_by_name_hash)
@@ -121,7 +121,7 @@ proc make_vert*(config_statements: seq[Statement], function_statements: seq[Stat
         if st.function.kind == sfkVertex:
             result &= st.var_type & "\n"
 
-proc make_frag*(config_statements: seq[Statement], function_statements: seq[Statement]): string =
+proc make_fragment_shader*(config_statements: seq[Statement], function_statements: seq[Statement]): string =
     # proc sort_by_name_hash(s1, s2: Statement): int =
     #     cmp(hash(s1.name), hash(s2.name))
     # framebuffers_in.sort(sort_by_name_hash)
@@ -195,6 +195,6 @@ proc make_frag*(config_statements: seq[Statement], function_statements: seq[Stat
             result &= st.var_type & "\n"
 
 # var (config_statements, function_statements) = parse_to_ast(test_shader)
-# echo(make_vert(config_statements, function_statements))
+# echo(make_vertex_shader(config_statements, function_statements))
 # echo("------")
-# echo(make_frag(config_statements, function_statements))
+# echo(make_fragment_shader(config_statements, function_statements))
