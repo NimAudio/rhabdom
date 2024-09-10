@@ -1,4 +1,6 @@
 import pugl
+import make_ast, serialize, ast_to_shader, resource
+import std/[tables, strutils]
 
 type
     Shader* = object
@@ -10,9 +12,11 @@ type
         log_program  *: cstring
         log_vertex   *: cstring
         log_fragment *: cstring
-        view_x *: uint16
-        view_y *: uint16
+        view_x     *: uint16
+        view_y     *: uint16
+        view_scale *: float
         clear_color *: array[4, float32]
+        mesh_id *: string
 
 proc shader_setup*(sh: var Shader) =
     # make vertex shader
@@ -51,8 +55,11 @@ proc shader_setup*(sh: var Shader) =
     glDeleteShader(sh.id_vertex)
     glDeleteShader(sh.id_fragment)
 
-proc shader_frame*(sh: Shader) =
-    glViewport(0, 0, GLsizei(sh.view_x), GLsizei(sh.view_y))
+proc shader_frame*(sh: Shader, view_x, view_y: uint16) =
+    if sh.view_scale < 0:
+        glViewport(0, 0, GLsizei(sh.view_x), GLsizei(sh.view_y))
+    else:
+        glViewport(0, 0, GLsizei(float(view_x) * sh.view_scale), GLsizei(float(view_y) * sh.view_scale))
     glClearColor(sh.clear_color[0], sh.clear_color[1], sh.clear_color[2], sh.clear_color[3])
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glUseProgram(sh.id_program)
