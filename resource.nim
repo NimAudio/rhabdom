@@ -14,16 +14,16 @@ type
         matF64 = GL_TYPE_DOUBLE,
         matF16 = GL_TYPE_HALF_FLOAT,
 
-    MeshUsage* {. size:sizeof(GLenum) .} = enum
-        muStreamDraw  = GL_STREAM_DRAW,
-        muStreamRead  = GL_STREAM_READ,
-        muStreamCopy  = GL_STREAM_COPY,
-        muStaticDraw  = GL_STATIC_DRAW,
-        muStaticRead  = GL_STATIC_READ,
-        muStaticCopy  = GL_STATIC_COPY,
-        muDynamicDraw = GL_DYNAMIC_DRAW,
-        muDynamicRead = GL_DYNAMIC_READ,
-        muDynamicCopy = GL_DYNAMIC_COPY,
+    BufferUsage* {. size:sizeof(GLenum) .} = enum
+        buStreamDraw  = GL_STREAM_DRAW,
+        buStreamRead  = GL_STREAM_READ,
+        buStreamCopy  = GL_STREAM_COPY,
+        buStaticDraw  = GL_STATIC_DRAW,
+        buStaticRead  = GL_STATIC_READ,
+        buStaticCopy  = GL_STATIC_COPY,
+        buDynamicDraw = GL_DYNAMIC_DRAW,
+        buDynamicRead = GL_DYNAMIC_READ,
+        buDynamicCopy = GL_DYNAMIC_COPY,
 
     MeshType* {. size:sizeof(GLenum) .} = enum
         mtPoints    = GL_POINTS,
@@ -40,19 +40,25 @@ type
         var_type  *: MeshAttrType = matF32
         normalize *: bool = false
 
+    MeshBuffer* = object
+        vbo_id     *: uint32
+        data       *: ptr UncheckedArray[byte] # use attributes to calculate the size of one vertex, then multiplied by the number of vertices
+        usage      *: BufferUsage
+        attributes *: seq[MeshAttr]
+        interlaced *: bool = true
+        update_cb  *: proc (globals: pointer, data: ptr UncheckedArray[byte])
+
     MeshData* = object
         num_vertices *: int
-        attributes   *: seq[MeshAttr]
         num_indices  *: int
-        vbo_id       *: uint32
         ibo_id       *: uint32
         vao_id       *: uint32
-        vertices     *: ptr UncheckedArray[byte] # use attributes to calculate the size of one vertex, then multiplied by the number of vertices
+        buffers      *: seq[MeshBuffer]
         indices      *: ptr UncheckedArray[uint32] # indices probably always need to be uint32, im not sure if there's a 64 bit int type
-        usage        *: MeshUsage
+        index_usage  *: BufferUsage
         mesh_type    *: MeshType
 
-proc byte_size*(mat: MeshAttrType): int32 =
+proc byte_size*(mat: MeshAttrType): int =
     case mat:
         of matI8:
             result = 1
@@ -77,32 +83,44 @@ proc mesh_setup*(md: var MeshData, locations: Table[string, uint32]) =
     glGenVertexArrays(1, addr md.vao_id)
     glBindVertexArray(md.vao_id)
 
-    glGenBuffers(1, addr md.vbo_id)
-    glBindBuffer(GL_ARRAY_BUFFER, md.vbo_id)
-    var vert_size: int32 = 0
-    for attr in md.attributes:
-        vert_size += int32(attr.number) * byte_size(attr.var_type)
-    glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(vert_size * md.num_vertices), md.vertices, GLenum(md.usage))
-
     glGenBuffers(1, addr md.ibo_id)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, md.ibo_id)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, GLsizeiptr(md.num_indices * uint32.sizeof), addr md.indices, GLenum(md.usage))
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, GLsizeiptr(md.num_indices * uint32.sizeof), addr md.indices, GLenum(md.index_usage))
 
-    var attr_byte_pos: int32 = 0
-    for attr in md.attributes:
-        glVertexAttribPointer(
-            GLuint(locations[attr.name]),
-            GLint(attr.number),
-            GLenum(attr.var_type),
-            GLboolean(attr.normalize),
-            GLsizei(vert_size),
-            cast[pointer](attr_byte_pos)
-        )
-        attr_byte_pos += attr.number * byte_size(attr.var_type)
-    # glVertexAttribPointer(0, 3, GL_TYPE_FLOAT, GL_FALSE, 7 * float32.sizeof, cast[pointer](0))
-    # glVertexAttribPointer(1, 4, GL_TYPE_FLOAT, GL_FALSE, 7 * float32.sizeof, cast[pointer](3 * float32.sizeof))
-    glEnableVertexAttribArray(0)
-    glEnableVertexAttribArray(1)
+    for buf in md.buffers:
+        glGenBuffers(1, addr buf.vbo_id)
+        glBindBuffer(GL_ARRAY_BUFFER, buf.vbo_id)
+        var vert_size = 0
+        for attr in buf.attributes:
+            vert_size += attr.number * byte_size(attr.var_type)
+        glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(vert_size * md.num_vertices), buf.data, GLenum(buf.usage))
+
+        if buf.interlaced:
+            var attr_byte_pos = 0
+            for attr in buf.attributes:
+                glVertexAttribPointer(
+                    GLuint(locations[attr.name]), # id/location
+                    GLint(attr.number), # number of components
+                    GLenum(attr.var_type), # type of attr
+                    GLboolean(attr.normalize),
+                    GLsizei(vert_size), # stride of one attr each
+                    cast[pointer](attr_byte_pos) # offset based on total size of previous attrs
+                )
+                attr_byte_pos += attr.number * byte_size(attr.var_type) # size of one vertex worth of the attr
+                glEnableVertexAttribArray(GLuint(locations[attr.name]))
+        else:
+            var attr_byte_pos = 0
+            for attr in buf.attributes:
+                glVertexAttribPointer(
+                    GLuint(locations[attr.name]), # id/location
+                    GLint(attr.number), # number of components
+                    GLenum(attr.var_type), # type of attr
+                    GLboolean(attr.normalize),
+                    GLsizei(attr.number * byte_size(attr.var_type)), # stride of one attr
+                    cast[pointer](attr_byte_pos) # offset based on total size of all verts worth of previous attrs
+                )
+                attr_byte_pos += attr.number * byte_size(attr.var_type) * md.num_vertices # size of all vertices worth of the attr
+                glEnableVertexAttribArray(GLuint(locations[attr.name]))
 
     glBindBuffer(GL_ARRAY_BUFFER, 0)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
