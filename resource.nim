@@ -1,5 +1,4 @@
 import std/tables
-
 import pugl
 
 type
@@ -35,18 +34,20 @@ type
         mtTriFan    = GL_TRIANGLE_FAN,
 
     MeshAttr* = object
-        name      *: string
+        name      *: string # must be unique and match name in shader
         number    *: range[1..4] = 3  # vec size
         var_type  *: MeshAttrType = matF32
         normalize *: bool = false
+        location  *: uint32
 
     MeshBuffer* = object
-        vbo_id     *: uint32
-        data       *: ptr UncheckedArray[byte] # use attributes to calculate the size of one vertex, then multiplied by the number of vertices
-        usage      *: BufferUsage
-        attributes *: seq[MeshAttr]
-        interlaced *: bool = true
-        update_cb  *: proc (globals: pointer, data: ptr UncheckedArray[byte])
+        vbo_id        *: uint32
+        data          *: ptr UncheckedArray[byte] # use attributes to calculate the size of one vertex, then multiplied by the number of vertices
+        usage         *: BufferUsage
+        attributes    *: seq[MeshAttr]
+        interlaced    *: bool = true
+        update_cb     *: proc (globals: pointer, data: ptr UncheckedArray[byte]): int = nil # can return new update frequency
+        update_frames *: int # 0 does not run update_cb, 1 is every frame, 2 is every other frame
 
     MeshData* = object
         num_vertices *: int
@@ -57,6 +58,11 @@ type
         indices      *: ptr UncheckedArray[uint32] # indices probably always need to be uint32, im not sure if there's a 64 bit int type
         index_usage  *: BufferUsage
         mesh_type    *: MeshType
+
+    RhabdomMeshes* = object
+        meshes        *: seq[MeshData]      # set of all setup meshes
+        mesh_ordering *: seq[int]           # for each pass, which mesh to use
+        mesh_str_map  *: Table[string, int] # given a name, which mesh is it
 
 proc byte_size*(mat: MeshAttrType): int =
     case mat:
@@ -132,6 +138,10 @@ proc mesh_frame*(md: MeshData) =
     glBindVertexArray(md.vao_id)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, md.ibo_id)
     glDrawElements(GLenum(md.mesh_type), GLsizei(md.num_indices), GL_TYPE_UNSIGNED_INT, nil);
+
+proc register_mesh*(rm: var RhabdomMeshes, name: string, md: MeshData) =
+    rm.mesh_str_map[name] = len(rm.meshes)
+    rm.meshes &= md
 
 
 proc tex_setup*() =

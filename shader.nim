@@ -75,6 +75,7 @@ proc make_shaders*(
         var view_x = view_xy[0]
         var view_y = view_xy[1]
         var view_scale: float
+        var mesh_name: string
         for st in ast_config[0]:
             if st.kind == pkClearColor:
                 clear_color = st.color
@@ -88,6 +89,15 @@ proc make_shaders*(
                     # var scale = parseFloat(st.name)
                     # view_x = int(float(view_xy[0]) * scale)
                     # view_y = int(float(view_xy[1]) * scale)
+            elif st.kind == pkMeshInput:
+                mesh_name = st.name
+        var mesh_index = meshes.mesh_str_map[mesh_name]
+        for st in ast_config[0]:
+            if st.kind == pkMeshAttrib:
+                for buffer in meshes.meshes[mesh_index].buffers:
+                    for attr in buffer.attributes:
+                        if attr.name.toUpperAscii() == st.name.toUpperAscii():
+                            st.location = attr.location
         result &= Shader(
             text_vertex   : make_vertex_shader(  ast_config[0], ast_functions[0]),
             text_fragment : make_fragment_shader(ast_config[0], ast_functions[0]),

@@ -100,6 +100,8 @@ type
             of pkEnable:
                 enable *: bool # true enables, false disables
                 settings *: seq[string]
+            of pkMeshAttrib:
+                location *: uint32
             else: discard
         # layout_values *: seq[string] = @[]
 
