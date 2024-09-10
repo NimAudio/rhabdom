@@ -63,3 +63,38 @@ proc shader_frame*(sh: Shader, view_x, view_y: uint16) =
     glClearColor(sh.clear_color[0], sh.clear_color[1], sh.clear_color[2], sh.clear_color[3])
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
     glUseProgram(sh.id_program)
+
+proc make_shaders*(
+        meshes        : RhabdomMeshes,
+        ast_config    : seq[seq[Statement]],
+        ast_functions : seq[seq[Statement]],
+        view_xy       : array[2, int] = [800, 600]
+    ): seq[Shader] =
+    if len(ast_config) == 1:
+        var clear_color: array[4, float32]
+        var view_x = view_xy[0]
+        var view_y = view_xy[1]
+        var view_scale: float
+        for st in ast_config[0]:
+            if st.kind == pkClearColor:
+                clear_color = st.color
+            elif st.kind == pkResScale:
+                if len(st.var_type) > 0: # y, x
+                    view_y = parseInt(st.var_type)
+                    view_x = parseInt(st.name)
+                    view_scale = -1.0
+                else: # scale
+                    view_scale = parseFloat(st.name)
+                    # var scale = parseFloat(st.name)
+                    # view_x = int(float(view_xy[0]) * scale)
+                    # view_y = int(float(view_xy[1]) * scale)
+        result &= Shader(
+            text_vertex   : make_vertex_shader(  ast_config[0], ast_functions[0]),
+            text_fragment : make_fragment_shader(ast_config[0], ast_functions[0]),
+            view_x        : uint16(view_x),
+            view_y        : uint16(view_y),
+            view_scale    : view_scale,
+            clear_color   : clear_color
+        )
+    # else:
+    #     var serialized: seq[Tokenized] = serialize_shader_list(ast_config)
