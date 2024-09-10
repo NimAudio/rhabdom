@@ -3,7 +3,7 @@ import make_ast, serialize, ast_to_shader, resource
 import std/[tables, strutils]
 
 type
-    Shader* = object
+    Shader* = ref object
         text_vertex   *: string
         text_fragment *: string
         id_program  *: uint32
@@ -54,8 +54,15 @@ proc shader_setup*(sh: var Shader) =
     # glUseProgram(sh.id_program)
     glDeleteShader(sh.id_vertex)
     glDeleteShader(sh.id_fragment)
+    glDetachShader(sh.id_program, sh.id_vertex)
+    glDetachShader(sh.id_program, sh.id_fragment)
 
 proc shader_frame*(sh: Shader, view_x, view_y: uint16) =
+    # stdout.write(view_x)
+    # stdout.write(" ")
+    # stdout.write(view_y)
+    # stdout.write(" ")
+    # flushFile(stdout)
     if sh.view_scale < 0:
         glViewport(0, 0, GLsizei(sh.view_x), GLsizei(sh.view_y))
     else:
@@ -77,6 +84,7 @@ proc make_shaders*(
         var view_scale: float
         var mesh_name: string
         for st in ast_config[0]:
+            # echo(st)
             if st.kind == pkClearColor:
                 clear_color = st.color
             elif st.kind == pkResScale:
@@ -84,14 +92,20 @@ proc make_shaders*(
                     view_y = parseInt(st.var_type)
                     view_x = parseInt(st.name)
                     view_scale = -1.0
+                    # echo("VIEW: ", view_x, " ", view_y, " ", view_scale)
                 else: # scale
                     view_scale = parseFloat(st.name)
+                    # echo("SCALE: ", view_scale)
                     # var scale = parseFloat(st.name)
                     # view_x = int(float(view_xy[0]) * scale)
                     # view_y = int(float(view_xy[1]) * scale)
             elif st.kind == pkMeshInput:
                 mesh_name = st.name
-        var mesh_index = meshes.mesh_str_map[mesh_name]
+        if mesh_name == "":
+            quit(1)
+        # echo(mesh_name)
+        # echo(meshes.mesh_str_map)
+        var mesh_index = meshes.mesh_str_map[mesh_name.toUpperAscii()]
         for st in ast_config[0]:
             if st.kind == pkMeshAttrib:
                 for buffer in meshes.meshes[mesh_index].buffers:

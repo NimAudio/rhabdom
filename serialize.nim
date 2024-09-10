@@ -310,8 +310,8 @@ proc sort_shaders*(tokenized: var seq[Tokenized]) =
 
     tokenized.sort(sort_by_position)
 
-var serialized = serialize_shader_list(parse_all_config(files))
-serialized.echo_position()
+# var serialized = serialize_shader_list(parse_all_config(files))
+# serialized.echo_position()
 # serialized.sort_shaders()
 
 # for shader in serialized:
