@@ -194,6 +194,8 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var on_first_word_of_line = true
     var line_has_non_alpha = false
     # var skip_char = false
+    # var line_past_indent = false
+    # var char_counter = 0
 
     var has_keyword = false
     var keyword_buffer = ""
@@ -227,10 +229,42 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
     var color_index = 0
     var clear_color_name = ""
 
+    # var num_spaces = 0
+    # if shader.startsWith(" "):
+    #     for i in 0 ..< len(shader):
+    #         if shader[i] == ' ':
+    #             num_spaces += 1
+    #         else:
+    #             break
+    # #     shader = shader.dedent(num_spaces)
+    # echo(num_spaces)
+
     block: # so i can be reused elsewhere
         var i = 0
         while i < len(shader):
             # skip_char = false
+            # if (not line_past_indent) and shader[i] != ' ' and shader[i] != '\n':
+            #     stdout.write('.')
+            #     line_past_indent = true
+            # if not line_past_indent:
+            #     i += 1
+            #     continue
+            # if shader[i] == ';':
+            #     stdout.write('!')
+            #     line_past_indent = false
+            # if char_counter < num_spaces:
+            #     i += 1
+            #     char_counter += 1
+            #     continue
+            # if shader[i] == ';':
+            #     stdout.write("<")
+            #     stdout.write(char_counter)
+            #     stdout.write(">")
+            #     char_counter = 0
+            #     stdout.write("<")
+            #     stdout.write(num_spaces)
+            #     stdout.write(">")
+            # stdout.write(shader[i])
             if not is_line_comment:
                 if not (i == len(shader)):
                     is_line_comment = shader[i] == '/' and shader[i + 1] == '/'
@@ -547,14 +581,23 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 quit(1)
 
     var has_output = false
+    var has_scale = false
     for s in result[0]:
         if s.kind == pkTexOutput:
             has_output = true
+        elif s.kind == pkResScale:
+            has_scale = true
     if not has_output:
         result[0] &= Statement(
                             name     : "frag_color",
                             var_type : "vec4",
                             kind     : pkTexOutput
+                        )
+    if not has_scale:
+        result[0] &= Statement(
+                            name     : "1.0",
+                            var_type : "",
+                            kind     : pkResScale
                         )
 
 
@@ -580,38 +623,38 @@ proc all_functions*(both: seq[(seq[Statement], seq[Statement])]): seq[seq[Statem
     for s in both:
         result &= s[1]
 
-var (config_statements, function_statements) = parse_to_ast(test_shader)
+# var (config_statements, function_statements) = parse_to_ast(test_shader)
 
-echo()
-for s in config_statements:
-    stdout.write(s.kind)
-    stdout.write(", n:")
-    stdout.write(s.name)
-    stdout.write(", t:")
-    stdout.write(s.var_type)
-    if s.kind == pkVar:
-        stdout.write(", ")
-        stdout.write(s.value)
-        stdout.write(", ")
-        stdout.write(if s.is_const: "const" else: "var")
-    elif s.kind == pkEnable:
-        stdout.write(", ")
-        stdout.write(s.enable)
-        stdout.write(", ")
-        stdout.write(s.settings)
-    elif s.kind == pkClearColor:
-        stdout.write(", ")
-        stdout.write(s.color)
-    stdout.write("\n")
-echo()
-for s in function_statements:
-    stdout.write(s.kind)
-    stdout.write(", ")
-    stdout.write(s.function.kind)
-    stdout.write(", ")
-    stdout.write(s.name)
-    stdout.write(", ")
-    stdout.write(s.var_type)
-    stdout.write(", ")
-    stdout.write($s.function.calls)
-    stdout.write("\n\n")
+# echo()
+# for s in config_statements:
+#     stdout.write(s.kind)
+#     stdout.write(", n:")
+#     stdout.write(s.name)
+#     stdout.write(", t:")
+#     stdout.write(s.var_type)
+#     if s.kind == pkVar:
+#         stdout.write(", ")
+#         stdout.write(s.value)
+#         stdout.write(", ")
+#         stdout.write(if s.is_const: "const" else: "var")
+#     elif s.kind == pkEnable:
+#         stdout.write(", ")
+#         stdout.write(s.enable)
+#         stdout.write(", ")
+#         stdout.write(s.settings)
+#     elif s.kind == pkClearColor:
+#         stdout.write(", ")
+#         stdout.write(s.color)
+#     stdout.write("\n")
+# echo()
+# for s in function_statements:
+#     stdout.write(s.kind)
+#     stdout.write(", ")
+#     stdout.write(s.function.kind)
+#     stdout.write(", ")
+#     stdout.write(s.name)
+#     stdout.write(", ")
+#     stdout.write(s.var_type)
+#     stdout.write(", ")
+#     stdout.write($s.function.calls)
+#     stdout.write("\n\n")
