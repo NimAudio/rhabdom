@@ -147,7 +147,7 @@ proc mesh_frame*(md: MeshData) =
     # add general glenable/disable system
     glBindVertexArray(md.vao_id)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, md.ibo_id)
-    glDrawElements(GLenum(md.mesh_type), GLsizei(md.num_indices), GL_TYPE_UNSIGNED_INT, md.indices);
+    glDrawElements(GLenum(md.mesh_type), GLsizei(md.num_indices), GL_TYPE_UNSIGNED_INT, nil);
 
 proc register_mesh*(rm: var RhabdomMeshes, name: string, md: MeshData) =
     rm.mesh_str_map[name.toUpperAscii()] = len(rm.meshes)

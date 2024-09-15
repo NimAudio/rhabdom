@@ -133,8 +133,8 @@ block:
 
     function void fragment()
     {
-        frag_color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-        //frag_color = vec4(color_interp.r, color_interp.g, color_interp.b, 1.0f); //vec4(1.0f, 0.5f, 0.2f, 1.0f);
+        //frag_color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+        frag_color = vec4(color_interp.r, color_interp.g, color_interp.b, 1.0f);
     }
     """.dedent(4)
     var view_data: ptr ViewData = cast[ptr ViewData](puglgethandle(view))
@@ -153,7 +153,7 @@ block:
         -0.5,  0.5, 0.0,   0.0, 0.0, 1.0, 1.0,
          0.5,  0.5, 0.0,   0.5, 0.5, 0.0, 1.0,
     ]
-    var quad_indices: array[6, int] = [0, 1, 2, 1, 2, 3]
+    var quad_indices: array[6, uint32] = [0, 1, 2, 1, 2, 3]
 
     view_data.rd.meshes.register_mesh("vertex_color",
         MeshData(
