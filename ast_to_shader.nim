@@ -100,11 +100,9 @@ proc make_vertex_shader*(config_statements: seq[Statement], function_statements:
     if len(texture_ext) > 0:
         result &= "\n"
 
-    var i_attribute = 0
     for st in mesh_attributes:
-        result &= "layout(location = " & $i_attribute & ") "
+        result &= "layout(location = " & $st.location & ") "
         result &= "in " & st.var_type & " " & st.name & ";\n"
-        i_attribute += 1
     if len(mesh_attributes) > 0:
         result &= "\n"
 

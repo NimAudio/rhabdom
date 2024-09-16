@@ -118,6 +118,7 @@ block:
 
     attrib vec3 position;
     attrib vec4 color;
+    attrib vec4 uv;
 
     between vec4 color_interp;
 
@@ -147,13 +148,20 @@ block:
         ast_functions &= ast[1]
         # echo(ast_config)
 
-    var quad_vertices: array[28, float32] = [
-        -0.5, -0.5, 0.0,   1.0, 0.0, 0.0, 1.0,
-         0.5, -0.5, 0.0,   0.0, 1.0, 0.0, 1.0,
-        -0.5,  0.5, 0.0,   0.0, 0.0, 1.0, 1.0,
-         0.5,  0.5, 0.0,   0.5, 0.5, 0.0, 1.0,
+    var quad_vertices: array[36, float32] = [
+        -0.5, -0.5, 0.0,   0.0, 0.0,   1.0, 0.0, 0.0, 1.0,
+         0.5, -0.5, 0.0,   0.0, 1.0,   0.0, 1.0, 0.0, 1.0,
+        -0.5,  0.5, 0.0,   1.0, 0.0,   0.0, 0.0, 1.0, 1.0,
+         0.5,  0.5, 0.0,   1.0, 1.0,   0.5, 0.5, 0.0, 1.0,
     ]
     var quad_indices: array[6, uint32] = [0, 1, 2, 1, 2, 3]
+
+    var tex_data: array[16, array[3, uint16]] = [
+        [65535, 0, 0], [32767, 32767, 0], [0, 65535, 0], [0, 32767, 32767],
+        [32767, 32767, 0], [0, 65535, 0], [0, 32767, 32767], [0, 0, 65535],
+        [0, 65535, 0], [0, 32767, 32767],[65535, 0, 0], [32767, 32767, 0],
+        [0, 32767, 32767], [65535, 0, 0], [32767, 32767, 0], [0, 65535, 0],
+    ]
 
     view_data.rd.meshes.register_mesh("vertex_color",
         MeshData(
@@ -172,11 +180,18 @@ block:
                             location  : 0,
                         ),
                         MeshAttr(
+                            name      : "uv",
+                            number    : 2,
+                            var_type  : matF32,
+                            normalize : false,
+                            location  : 1,
+                        ),
+                        MeshAttr(
                             name      : "color",
                             number    : 4,
                             var_type  : matF32,
                             normalize : false,
-                            location  : 1,
+                            location  : 2,
                         )
                     ],
                     interlaced : true,
@@ -190,22 +205,24 @@ block:
 
     for mesh in viewdata.rd.meshes.meshes.mitems():
         mesh_setup(mesh)
-        echo("error mesh: " & $uint32(glGetError()))
+        # echo("error mesh: " & $uint32(glGetError()))
+        discard glGetError()
 
     view_data.rd.shaders = view_data.rd.meshes.make_shaders(ast_config, ast_functions)
 
     for shader in viewdata.rd.shaders.mitems():
         shader_setup(shader)
-        echo("error shader: " & $uint32(glGetError()))
+        # echo("error shader: " & $uint32(glGetError()))
+        discard glGetError()
 
-    echo(view_data.rd.shaders[0].text_vertex)
-    echo(view_data.rd.shaders[0].text_fragment)
-    # echo(len(view_data.rd.shaders))
-    # echo(view_data.rd.shaders[0])
-    echo(view_data.rd.shaders[0].log_program)
-    echo(view_data.rd.shaders[0].log_vertex)
-    echo(view_data.rd.shaders[0].log_fragment)
-    # echo(view_data.rd.meshes.meshes[0][])
+    # echo(view_data.rd.shaders[0].text_vertex)
+    # echo(view_data.rd.shaders[0].text_fragment)
+    # # echo(len(view_data.rd.shaders))
+    # # echo(view_data.rd.shaders[0])
+    # echo(view_data.rd.shaders[0].log_program)
+    # echo(view_data.rd.shaders[0].log_vertex)
+    # echo(view_data.rd.shaders[0].log_fragment)
+    # # echo(view_data.rd.meshes.meshes[0][])
 
 echo(puglstrerror(puglleavecontext(view)))
 

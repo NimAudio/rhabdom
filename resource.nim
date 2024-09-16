@@ -108,9 +108,9 @@ proc mesh_setup*(md: var MeshData) =
 
         if buf.interlaced:
             var attr_byte_pos = 0
-            echo(len(buf.attributes))
+            # echo(len(buf.attributes))
             for attr in buf.attributes:
-                echo(attr.location, " ", attr.number, " ", attr.var_type, " ", attr.normalize, " ", vert_size, " ", attr_byte_pos)
+                # echo(attr.location, " ", attr.number, " ", attr.var_type, " ", attr.normalize, " ", vert_size, " ", attr_byte_pos)
                 glVertexAttribPointer(
                     GLuint(attr.location), # id/location
                     GLint(attr.number), # number of components
@@ -123,9 +123,9 @@ proc mesh_setup*(md: var MeshData) =
                 glEnableVertexAttribArray(GLuint(attr.location))
         else:
             var attr_byte_pos = 0
-            echo(len(buf.attributes))
+            # echo(len(buf.attributes))
             for attr in buf.attributes:
-                echo(attr.location, " ", attr.number, " ", attr.var_type, " ", attr.normalize, " ", attr.number * byte_size(attr.var_type), " ", attr_byte_pos)
+                # echo(attr.location, " ", attr.number, " ", attr.var_type, " ", attr.normalize, " ", attr.number * byte_size(attr.var_type), " ", attr_byte_pos)
                 glVertexAttribPointer(
                     GLuint(attr.location), # id/location
                     GLint(attr.number), # number of components
@@ -140,7 +140,7 @@ proc mesh_setup*(md: var MeshData) =
     glBindBuffer(GL_ARRAY_BUFFER, 0)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
     glBindVertexArray(0)
-    echo(md[])
+    # echo(md[])
 
 proc mesh_frame*(md: MeshData) =
     # add blend funcs
