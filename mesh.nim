@@ -24,14 +24,14 @@ type
         buDynamicRead = GL_DYNAMIC_READ,
         buDynamicCopy = GL_DYNAMIC_COPY,
 
-    MeshType* {. size:sizeof(GLenum) .} = enum
-        mtPoints    = GL_POINTS,
-        mtLines     = GL_LINES,
-        mtLineLoop  = GL_LINE_LOOP,
-        mtLineStrip = GL_LINE_STRIP,
-        mtTriangles = GL_TRIANGLES,
-        mtTriStrip  = GL_TRIANGLE_STRIP,
-        mtTriFan    = GL_TRIANGLE_FAN,
+    MeshKind* {. size:sizeof(GLenum) .} = enum
+        mkPoints    = GL_POINTS,
+        mkLines     = GL_LINES,
+        mkLineLoop  = GL_LINE_LOOP,
+        mkLineStrip = GL_LINE_STRIP,
+        mkTriangles = GL_TRIANGLES,
+        mkTriStrip  = GL_TRIANGLE_STRIP,
+        mkTriFan    = GL_TRIANGLE_FAN,
 
     MeshAttr* = object
         name      *: string # must be unique and match name in shader
@@ -57,7 +57,7 @@ type
         buffers      *: seq[MeshBuffer]
         indices      *: ptr UncheckedArray[uint32] # indices probably always need to be uint32, im not sure if there's a 64 bit int type
         index_usage  *: BufferUsage
-        mesh_type    *: MeshType
+        mesh_type    *: MeshKind
 
     RhabdomMeshes* = object
         meshes        *: seq[MeshData]      # set of all setup meshes
@@ -154,12 +154,3 @@ proc register_mesh*(rm: var RhabdomMeshes, name: string, md: MeshData) =
     rm.meshes &= md
 
 
-proc tex_setup*() =
-    discard
-proc tex_frame*() =
-    discard
-
-proc fb_setup*() =
-    discard
-proc fb_frame*() =
-    discard

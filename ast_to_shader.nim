@@ -162,6 +162,7 @@ proc make_fragment_shader*(config_statements: seq[Statement], function_statement
     for st in framebuffers_in:
         result &= "uniform GL_TEXTURE_2D " & st.name & ";\n"
         result &= "uniform sampler " & st.name & "_smp;\n"
+        result &= "const " & st.name & "_idx = " & $st.location & ";\n"
     if len(framebuffers_in) > 0:
         result &= "\n"
 

@@ -87,9 +87,10 @@ type
         sfkOther
 
     Statement* = ref object
-        name          *: string
-        var_type      *: string
-        case kind*: ShaderKeyword:
+        name      *: string
+        var_type  *: string
+        location  *: uint32
+        case kind *: ShaderKeyword:
             of pkFunction:
                 function *: ShaderFunction
             of pkVar:
@@ -100,8 +101,6 @@ type
             of pkEnable:
                 enable *: bool # true enables, false disables
                 settings *: seq[string]
-            of pkMeshAttrib:
-                location *: uint32
             else: discard
         # layout_values *: seq[string] = @[]
 
@@ -580,6 +579,7 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
                 echo("invalid function to call " & call)
                 quit(1)
 
+    var tex_loc = 0
     var has_output = false
     var has_scale = false
     for s in result[0]:
@@ -587,6 +587,9 @@ proc parse_to_ast*(shader: string): (seq[Statement], seq[Statement]) =
             has_output = true
         elif s.kind == pkResScale:
             has_scale = true
+        elif s.kind == pkTexExternal:
+            s.location = uint32(tex_loc)
+            tex_loc += 1
     if not has_output:
         result[0] &= Statement(
                             name     : "frag_color",

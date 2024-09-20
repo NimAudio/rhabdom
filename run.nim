@@ -1,6 +1,6 @@
 import std/[tables, strutils]
 import pugl
-import resource, shader, make_ast, serialize, ast_to_shader
+import mesh, shader
 
 
 var shader_string: string = """

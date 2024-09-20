@@ -1,6 +1,6 @@
 import std/[locks, strutils]
 import pugl
-import make_ast, serialize, ast_to_shader, resource, shader, run
+import make_ast, serialize, ast_to_shader, mesh, shader, run
 
 var world: ptr Puglworld = puglnewworld(Puglprogram, 0'u32)
 
@@ -199,7 +199,7 @@ block:
             ],
             indices      : cast[ptr UncheckedArray[uint32]](addr quad_indices),
             index_usage  : buStaticDraw,
-            mesh_type    : mtTriangles,
+            mesh_type    : mkTriangles,
         )
     )
 

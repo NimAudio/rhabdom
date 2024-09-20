@@ -1,5 +1,5 @@
 import pugl
-import make_ast, serialize, ast_to_shader, resource
+import make_ast, serialize, ast_to_shader, mesh
 import std/[tables, strutils]
 
 type
@@ -102,6 +102,7 @@ proc make_shaders*(
             elif st.kind == pkMeshInput:
                 mesh_name = st.name
         if mesh_name == "":
+            echo("shader has no mesh")
             quit(1)
         # echo(mesh_name)
         # echo(meshes.mesh_str_map)
